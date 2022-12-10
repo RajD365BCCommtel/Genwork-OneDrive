@@ -1,0 +1,91 @@
+{
+  "id": "7ce62f09-5db1-4503-ba24-e861f3ba1a26",
+  "name": "Genwork_OneDrive",
+  "publisher": "3K technologies",
+  "version": "1.0.0.5",
+  "brief": "",
+  "description": "",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "3kT.png",
+  "dependencies": [
+    {
+      "id": "1150dd8d-51da-485a-bd4a-1ee98d78c21a",
+      "publisher": "Microsoft",
+      "name": "Fixed Asset Depreciation for India",
+      "version": "21.0.46256.47234"
+    },
+    {
+      "id": "2dc39818-e0f0-42b6-99eb-ba29dc5f4102",
+      "publisher": "Microsoft", 
+      "name": "India Gate Entry",
+      "version": "21.0.46256.47234"
+    },
+    {
+          "id": "db643212-b7fb-4dd4-b5a8-cb44ac714461",
+          "publisher": "Microsoft",
+          "name": "India GST",
+          "version": "21.0.46256.48144"
+    },
+    {
+      "id": "050f6146-bffd-40de-942c-d0dd510ec20f",
+      "publisher": "Microsoft",
+      "name": "India Reports",
+      "version": "21.0.46256.47234"
+    },
+    {
+      "id": "d3c551dd-5903-4194-b153-04ced9d29a2c",
+      "publisher": "Microsoft",
+      "name": "India Tax Base",
+      "version": "21.0.46256.48144"
+    },
+    {
+      "id": "eddcf82e-482c-49d1-836b-ad0284f2c5b0",
+      "publisher": "Microsoft",
+      "name": "India TCS",
+      "version": "21.0.46256.48016"
+    },
+    {
+      "id": "eae5779e-7797-4c4c-977e-7516652b7a65",
+      "publisher": "Microsoft",
+      "name": "India TDS",
+      "version": "21.0.46256.47750"
+    },
+    {
+      "id": "f1d9b696-156b-4251-b542-34e549fa80e9",
+      "publisher": "Microsoft",
+      "name": "India Voucher Interface",
+      "version": "21.0.46256.47234"
+    }
+    ,
+    {
+      "id": "c1eafb3f-e397-468e-bdb4-ecc5c317ca00",
+      "publisher": "Microsoft",
+      "name": "Tax Engine",
+      "version": "21.0.46256.47750"
+    },
+    {
+      "id": "0987ed8a-72cf-4201-9bab-e2f5beac4e6a",
+      "publisher": "Genworks",
+      "name": "Genworks Base",
+      "version": "1.0.0.5"
+    }
+  ],
+  "screenshots": [],
+  "platform": "1.0.0.0",
+  "application": "20.0.0.0",
+  "idRanges": [
+    {
+      "from": 50200,
+      "to": 50249
+    }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": false,
+    "includeSourceInSymbolFile": false
+  },
+  "runtime": "9.0"
+}
