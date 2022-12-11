@@ -6,6 +6,8 @@ Codeunit 50204 "Onedrive Jobque. Executer"
         CASE JQEParameter OF
             ProcessStockDetails():
                 InsertDataFromTempStock(Rec);
+            SendEmailAndCopyDelete():
+                EmailCopyAndDeleteFile();
             ELSE
                 ERROR(STRSUBSTNO(GetUnknownParameter, JQEParameter));
         END;
@@ -37,8 +39,15 @@ Codeunit 50204 "Onedrive Jobque. Executer"
         end;
     end;
 
-    local procedure CheckMasterAvailable(var TempClosingStockDetails: Record "Closing Stock Details Buffer" temporary)
+    Local procedure EmailCopyAndDeleteFile()
+    var
+        OneDriveMgt: Codeunit "One Drive Mgt.";
+    begin
+        Clear(OneDriveMgt);
+        OneDriveMgt.EmailCopyAndDeleteOnedriveFile(FileName, CounterOK, CounterError);
+    end;
 
+    local procedure CheckMasterAvailable(var TempClosingStockDetails: Record "Closing Stock Details Buffer" temporary)
     var
         Item: Record Item;
         Location: Record Location;
@@ -97,6 +106,24 @@ Codeunit 50204 "Onedrive Jobque. Executer"
         END;
     END;
 
+    PROCEDURE ProcessSendEmailAndCopyDelete(var TempClosingStockDetails: Record "Closing Stock Details Buffer" temporary): Boolean;
+    VAR
+        _OneDriveOutboundLogEntries2: Record "OneDrive Outbound Log Entries";
+        _JobQueueExecuter: Codeunit "Onedrive Jobque. Executer";
+    BEGIN
+        COMMIT;
+        ClearLastError();
+        _JobQueueExecuter.SetJQEParameter(JQEParameter);
+        _JobQueueExecuter.SetFileName(FileName);
+        _JobQueueExecuter.SetCounterParameters(CounterOK, CounterError);
+        IF _JobQueueExecuter.RUN(TempClosingStockDetails) THEN
+            EXIT(TRUE)
+        ELSE
+            EXIT(FALSE);
+    END;
+
+
+
     local procedure CreateOutboundEntries()
     var
         OneDriveOutboundLogEntries: Record "OneDrive Outbound Log Entries";
@@ -131,6 +158,12 @@ Codeunit 50204 "Onedrive Jobque. Executer"
         JQEParameter := _JQEParameter;
     END;
 
+    PROCEDURE SetCounterParameters(_CounterOK: Integer; _CounterError: Integer);
+    BEGIN
+        CounterOK := _CounterOK;
+        CounterError := _CounterError;
+    END;
+
     PROCEDURE CreateOrderPayload(): Text[250];
     BEGIN
         EXIT(txtCreateOrderPayload);
@@ -141,10 +174,16 @@ Codeunit 50204 "Onedrive Jobque. Executer"
         EXIT(txtProcessStockDetails);
     END;
 
+    PROCEDURE SendEmailAndCopyDelete(): Text[250];
+    BEGIN
+        EXIT(txtSendEmailAndCopyDelete);
+    END;
+
     procedure SetFileName(_FileName: Text)
     begin
         FileName := _FileName;
     end;
+
 
     procedure GetUnknownParameter(): Text[250];
     BEGIN
@@ -154,7 +193,11 @@ Codeunit 50204 "Onedrive Jobque. Executer"
     VAR
         txtCreateOrderPayload: TextConst ENU = 'CREATEORDERPAYLOAD';
         txtProcessStockDetails: TextConst ENU = 'PROCESSSTOCKDETAILS';
+        txtSendEmailAndCopyDelete: TextConst ENU = 'EMAILANDDELETE';
         txtUnknownParameter: TextConst ENU = 'Job Queue parameter %1 is unknown!;';
         JQEParameter: Text[250];
         FileName: Text;
+        CounterOK: Integer;
+        CounterError: Integer;
+
 }

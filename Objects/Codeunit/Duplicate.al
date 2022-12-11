@@ -5,6 +5,7 @@ codeunit 50205 "Duplicate One Drive Mgt."
     begin
         //LoadData();
         MoveOnedriveFileStream('ConsolidatedBatchReport.xlsx');
+        //DeleteOnedriveFile('ConsolidatedBatchReport.xlsx');
     end;
 
     procedure LoadData()
@@ -101,38 +102,73 @@ codeunit 50205 "Duplicate One Drive Mgt."
         _AccessToken := ConnectorSetup.GetAccessToken();
         _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
         Headers := Client.DefaultRequestHeaders();
-        Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
-        OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1/Copy', OneDriveFile);
+        OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1:/Copy', OneDriveFile);
         RequestJson.Add('name', OneDriveFile);
         RequestJson.Add('parentReference', GetParentReferenceJson(ConnectorSetup."Move Folder Id"));
         RequestJson.WriteTo(_JsonText);
-        //Headers.Add('ContentType', 'application/json');
-        //Client.DefaultRequestHeaders.Add('ContentType', 'application/json');
-        RequestContent.Clear();
         RequestContent.WriteFrom(_JsonText);
-        //RequestContent.GetHeaders(Headers);
-        //RequestContentHeader.Clear();
-        //Headers.Remove('Content-Type');
-        //Headers.Add('Content-Type', 'application/json');
-
-        //RequestContent.GetHeaders(RequestContentHeader);
-        // RequestContent.Clear();
-        // RequestContent.WriteFrom(_JsonText);
-        //RequestContentHeader.Clear();
-        //RequestContent.GetHeaders(RequestContentHeader);
-        RequestMessage.Content := RequestContent;
-        RequestContentHeader.Remove('Content-Type');
-        RequestContentHeader.Add('Content-Type', 'application/json');
         RequestContent.GetHeaders(RequestContentHeader);
-        RequestMessage.SetRequestUri(OneDriveURL);
-        RequestMessage.Method := 'POST';
-        if not Client.Send(RequestMessage, ResponseMessage) then
-            //if not Client.post(OneDriveURL, RequestContent, ResponseMessage) then
+        RequestContentHeader.Clear();
+        RequestContentHeader.Add('Content-Type', 'application/json');
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
+        if not Client.post(OneDriveURL, RequestContent, ResponseMessage) then
             if ResponseMessage.IsBlockedByEnvironment() then
                 ErrorMessage := StrSubstNo(EnvironmentBlocksErr, RequestMessage.GetRequestUri())
             else
                 ErrorMessage := StrSubstNo(ConnectionErr, RequestMessage.GetRequestUri());
-        ResponseMessage.Content.ReadAs(ErrorMessage);
+        //ResponseMessage.Content.ReadAs(ErrorMessage);
+        if ErrorMessage <> '' then
+            Error(ErrorMessage);
+        if ResponseMessage.IsSuccessStatusCode() then
+            Message('Success')
+        else
+            ErrorMessage := StrSubstNo('HTTP error %1 (%2)', ResponseMessage.HttpStatusCode(), ResponseMessage.ReasonPhrase());
+        if ErrorMessage <> '' then
+            Error(ErrorMessage);
+    end;
+
+    procedure DeleteOnedriveFile(OneDriveFile: Text)
+    var
+        Client: HttpClient;
+        Headers: HttpHeaders;
+        RequestMessage: HttpRequestMessage;
+        ResponseMessage: HttpResponseMessage;
+        RequestContent: HttpContent;
+        RequestContentHeader: HttpHeaders;
+        ConnectorSetup: Record "Onedrive Connector Setup";
+        _AccessTokenMgmnt: codeunit "OneDrive Access Token Mgmnt.";
+        RequestJson: JsonObject;
+        ReqJson: JsonObject;
+        OneDriveURL: Text;
+        _JsonText: Text;
+        _AccessToken: Text;
+        ResponseText: Text;
+        _MessageTxt: Text;
+        SetRequestURL: Text;
+        ErrorMessage: Text;
+    begin
+        ConnectorSetup.Get();
+        ConnectorSetup.TestField("Drive ID");
+        ConnectorSetup.TestField("Import Folder");
+        ConnectorSetup.TestField("Move Folder Id");
+        _AccessToken := ConnectorSetup.GetAccessToken();
+        _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
+        Headers := Client.DefaultRequestHeaders();
+        OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1:', OneDriveFile);
+        //RequestJson.Add('name', OneDriveFile);
+        //RequestJson.Add('parentReference', GetParentReferenceJson(ConnectorSetup."Move Folder Id"));
+        //RequestJson.WriteTo(_JsonText);
+        // RequestContent.WriteFrom(_JsonText);
+        // RequestContent.GetHeaders(RequestContentHeader);
+        // RequestContentHeader.Clear();
+        // RequestContentHeader.Add('Content-Type', 'application/json');
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
+        if not Client.Delete(OneDriveURL, ResponseMessage) then
+            if ResponseMessage.IsBlockedByEnvironment() then
+                ErrorMessage := StrSubstNo(EnvironmentBlocksErr, RequestMessage.GetRequestUri())
+            else
+                ErrorMessage := StrSubstNo(ConnectionErr, RequestMessage.GetRequestUri());
+        //ResponseMessage.Content.ReadAs(ErrorMessage);
         if ErrorMessage <> '' then
             Error(ErrorMessage);
         if ResponseMessage.IsSuccessStatusCode() then
@@ -145,7 +181,7 @@ codeunit 50205 "Duplicate One Drive Mgt."
 
     local procedure GetParentReferenceJson(MoveFolderId: text) ParentRefernceJson: JsonObject
     begin
-        ParentRefernceJson.Add('id', MoveFolderId)
+        ParentRefernceJson.Add('id', MoveFolderId);
     end;
 
     local procedure ReadExcelSheet(_Stream: InStream)

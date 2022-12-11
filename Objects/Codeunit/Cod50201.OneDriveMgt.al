@@ -4,7 +4,6 @@ codeunit 50201 "One Drive Mgt."
 
     begin
         LoadData();
-        //MoveOnedriveFileStream('ConsolidatedBatchReport.xlsx');
     end;
 
     procedure LoadData()
@@ -25,14 +24,7 @@ codeunit 50201 "One Drive Mgt."
         ImportExcelDataToTempStock();
     end;
 
-    procedure ManualProcess()
-    var
-        OnedriveJobQueueHandler: Codeunit "Onedrive JobQueue Handler";
-    begin
-        LoadData();
-        OnedriveJobQueueHandler.SetJQEParameter('PROCESSSTOCKDETAILS');
-        OnedriveJobQueueHandler.ProcessTempEntries(TempClosingStockDetails);
-    end;
+
 
     procedure GetOnedriveFileStream(OneDriveFile: Text; var Stream: InStream)
     var
@@ -72,80 +64,6 @@ codeunit 50201 "One Drive Mgt."
             ErrorMessage := StrSubstNo('HTTP error %1 (%2)', ResponseMessage.HttpStatusCode(), ResponseMessage.ReasonPhrase());
         if ErrorMessage <> '' then
             Error(ErrorMessage);
-    end;
-
-    procedure MoveOnedriveFileStream(OneDriveFile: Text)
-    var
-        Client: HttpClient;
-        Headers: HttpHeaders;
-        RequestMessage: HttpRequestMessage;
-        ResponseMessage: HttpResponseMessage;
-        RequestContent: HttpContent;
-        RequestContentHeader: HttpHeaders;
-        ConnectorSetup: Record "Onedrive Connector Setup";
-        _AccessTokenMgmnt: codeunit "OneDrive Access Token Mgmnt.";
-        RequestJson: JsonObject;
-        ReqJson: JsonObject;
-        OneDriveURL: Text;
-        _JsonText: Text;
-        _AccessToken: Text;
-        ResponseText: Text;
-        _MessageTxt: Text;
-        SetRequestURL: Text;
-        ErrorMessage: Text;
-    begin
-        ConnectorSetup.Get();
-        ConnectorSetup.TestField("Drive ID");
-        ConnectorSetup.TestField("Import Folder");
-        ConnectorSetup.TestField("Move Folder Id");
-        _AccessToken := ConnectorSetup.GetAccessToken();
-        _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
-        Headers := Client.DefaultRequestHeaders();
-        Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
-        OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1', OneDriveFile);
-        RequestJson.Add('name', OneDriveFile);
-        RequestJson.Add('parentReference', GetParentReferenceJson(ConnectorSetup."Move Folder Id"));
-        RequestJson.WriteTo(_JsonText);
-        //Headers.Add('ContentType', 'application/json');
-        //Client.DefaultRequestHeaders.Add('ContentType', 'application/json');
-        //RequestContent.Clear();
-        RequestContent.WriteFrom(_JsonText);
-        RequestContent.GetHeaders(Headers);
-        //RequestContentHeader.Clear();
-        Headers.Remove('Content-Type');
-        Headers.Add('Content-Type', 'application/json');
-        //RequestMessage.Content := RequestContent;
-        //RequestContent.GetHeaders(RequestContentHeader);
-        // RequestContent.Clear();
-        // RequestContent.WriteFrom(_JsonText);
-        //RequestContentHeader.Clear();
-        //RequestContent.GetHeaders(RequestContentHeader);
-        //RequestContentHeader.Remove('Content-Type');
-
-        //RequestContentHeader.Add('Header.Content-Type', 'application/json');
-        //RequestContent.GetHeaders(RequestContentHeader);
-        RequestMessage.SetRequestUri(OneDriveURL);
-        RequestMessage.Method := 'PATCH';
-        if not Client.Send(RequestMessage, ResponseMessage) then
-            //if not Client.post(OneDriveURL, RequestContent, ResponseMessage) then
-            if ResponseMessage.IsBlockedByEnvironment() then
-                ErrorMessage := StrSubstNo(EnvironmentBlocksErr, RequestMessage.GetRequestUri())
-            else
-                ErrorMessage := StrSubstNo(ConnectionErr, RequestMessage.GetRequestUri());
-        ResponseMessage.Content.ReadAs(ErrorMessage);
-        if ErrorMessage <> '' then
-            Error(ErrorMessage);
-        if ResponseMessage.IsSuccessStatusCode() then
-            Message('Success')
-        else
-            ErrorMessage := StrSubstNo('HTTP error %1 (%2)', ResponseMessage.HttpStatusCode(), ResponseMessage.ReasonPhrase());
-        if ErrorMessage <> '' then
-            Error(ErrorMessage);
-    end;
-
-    local procedure GetParentReferenceJson(MoveFolderId: text) ParentRefernceJson: JsonObject
-    begin
-        ParentRefernceJson.Add('id', MoveFolderId)
     end;
 
     local procedure ReadExcelSheet(_Stream: InStream)
@@ -217,6 +135,121 @@ codeunit 50201 "One Drive Mgt."
             exit(ExcelBuffer."Cell Value as Text");
     end;
 
+    procedure ManualProcess()
+    var
+        OnedriveJobQueueHandler: Codeunit "Onedrive JobQueue Handler";
+    begin
+        LoadData();
+        OnedriveJobQueueHandler.SetJQEParameter('PROCESSSTOCKDETAILS');
+        OnedriveJobQueueHandler.SetFileName(FileName);
+        OnedriveJobQueueHandler.ProcessTempEntries(TempClosingStockDetails);
+    end;
+
+    procedure EmailCopyAndDeleteOnedriveFile(OneDriveFile: Text; _CounterOk: Integer; _CounterErr: Integer)
+    var
+        Client: HttpClient;
+        Headers: HttpHeaders;
+        RequestMessage: HttpRequestMessage;
+        ResponseMessage: HttpResponseMessage;
+        RequestContent: HttpContent;
+        RequestContentHeader: HttpHeaders;
+        ConnectorSetup: Record "Onedrive Connector Setup";
+        _AccessTokenMgmnt: codeunit "OneDrive Access Token Mgmnt.";
+        RequestJson: JsonObject;
+        ReqJson: JsonObject;
+        OneDriveURL: Text;
+        _JsonText: Text;
+        _AccessToken: Text;
+        ResponseText: Text;
+        _MessageTxt: Text;
+        SetRequestURL: Text;
+        ErrorMessage: Text;
+    begin
+        CreateAndSendEmail(_CounterOk, _CounterErr);
+        ConnectorSetup.Get();
+        ConnectorSetup.TestField("Drive ID");
+        ConnectorSetup.TestField("Import Folder");
+        ConnectorSetup.TestField("Move Folder Id");
+        _AccessToken := ConnectorSetup.GetAccessToken();
+        _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
+        Headers := Client.DefaultRequestHeaders();
+        OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1:/Copy', OneDriveFile);
+        RequestJson.Add('name', OneDriveFile);
+        RequestJson.Add('parentReference', GetParentReferenceJson(ConnectorSetup."Move Folder Id"));
+        RequestJson.WriteTo(_JsonText);
+        RequestContent.WriteFrom(_JsonText);
+        RequestContent.GetHeaders(RequestContentHeader);
+        RequestContentHeader.Clear();
+        RequestContentHeader.Add('Content-Type', 'application/json');
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
+        if not Client.post(OneDriveURL, RequestContent, ResponseMessage) then
+            if ResponseMessage.IsBlockedByEnvironment() then
+                ErrorMessage := StrSubstNo(EnvironmentBlocksErr, RequestMessage.GetRequestUri())
+            else
+                ErrorMessage := StrSubstNo(ConnectionErr, RequestMessage.GetRequestUri());
+        if ErrorMessage <> '' then
+            Error(ErrorMessage);
+        if ResponseMessage.IsSuccessStatusCode() then
+            ErrorMessage := ''
+        else
+            ErrorMessage := StrSubstNo('HTTP error %1 (%2)', ResponseMessage.HttpStatusCode(), ResponseMessage.ReasonPhrase());
+        if ErrorMessage <> '' then
+            Error(ErrorMessage);
+        DeleteOnedriveFile(OneDriveFile);
+    end;
+
+    local procedure DeleteOnedriveFile(OneDriveFile: Text)
+    var
+        Client: HttpClient;
+        Headers: HttpHeaders;
+        RequestMessage: HttpRequestMessage;
+        ResponseMessage: HttpResponseMessage;
+        RequestContent: HttpContent;
+        RequestContentHeader: HttpHeaders;
+        ConnectorSetup: Record "Onedrive Connector Setup";
+        _AccessTokenMgmnt: codeunit "OneDrive Access Token Mgmnt.";
+        RequestJson: JsonObject;
+        ReqJson: JsonObject;
+        OneDriveURL: Text;
+        _JsonText: Text;
+        _AccessToken: Text;
+        ResponseText: Text;
+        _MessageTxt: Text;
+        SetRequestURL: Text;
+        ErrorMessage: Text;
+    begin
+        ConnectorSetup.Get();
+        ConnectorSetup.TestField("Drive ID");
+        ConnectorSetup.TestField("Import Folder");
+        _AccessToken := ConnectorSetup.GetAccessToken();
+        _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
+        Headers := Client.DefaultRequestHeaders();
+        OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1:', OneDriveFile);
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
+        if not Client.Delete(OneDriveURL, ResponseMessage) then
+            if ResponseMessage.IsBlockedByEnvironment() then
+                ErrorMessage := StrSubstNo(EnvironmentBlocksErr, RequestMessage.GetRequestUri())
+            else
+                ErrorMessage := StrSubstNo(ConnectionErr, RequestMessage.GetRequestUri());
+        if ErrorMessage <> '' then
+            Error(ErrorMessage);
+        if ResponseMessage.IsSuccessStatusCode() then
+            ErrorMessage := ''
+        else
+            ErrorMessage := StrSubstNo('HTTP error %1 (%2)', ResponseMessage.HttpStatusCode(), ResponseMessage.ReasonPhrase());
+        if ErrorMessage <> '' then
+            Error(ErrorMessage);
+    end;
+
+
+
+    local procedure GetParentReferenceJson(MoveFolderId: text) ParentRefernceJson: JsonObject
+    begin
+        ParentRefernceJson.Add('id', MoveFolderId)
+    end;
+
+
+
     procedure GetTempClosingStockEntries(var TempClosingStockDetails1: Record "Closing Stock Details Buffer" temporary)
     begin
         IF TempClosingStockDetails.FINDSET then
@@ -265,6 +298,35 @@ codeunit 50201 "One Drive Mgt."
     procedure SetFileName(_FileName: Text)
     begin
         FileName := _FileName;
+    end;
+
+    procedure CreateAndSendEmail(CounterOk: Integer; CounterErr: Integer)
+    var
+        Recipients: List of [Text];
+        UserSetup: Record "User Setup";
+        Emailobj: Codeunit Email;
+        EmailMsg: Codeunit "Email Message";
+        TxtDefaultCCMailList: List of [Text];
+        TxtDefaultBCCMailList: List of [Text];
+        Body: Text;
+        InvStockMsg: Label 'Dear Execution Team, <br><br> The Item Inventory stock details are updated in SwiftLink for date %1.<br><br> Total Number of records updated : %2 <br><br>Total Number of records had issues while updating : %3 <br><br>Thanks, <br> Digital Team';
+        SubjectMsg: Label 'Item Inventory stock update status - %1';
+        Subject: Text;
+        _CurrentDateTime: DateTime;
+        _FileName: Text;
+    begin
+        UserSetup.RESET;
+        UserSetup.SETFILTER(UserSetup."Backend User Email ID", '<>%1', '');
+        IF UserSetup.FINDFIRST THEN
+            REPEAT
+                Recipients.add(UserSetup."Backend User Email ID");
+            UNTIL UserSetup.NEXT = 0;
+        _CurrentDateTime := CurrentDateTime;
+        Body := StrSubstNo(InvStockMsg, Format(Today, 0, '<Day,2>/<Month,2>/<Year4>'), CounterOk, CounterErr);
+        Subject := StrSubstNo(SubjectMsg, Format(Today, 0, '<Day,2>/<Month,2>/<Year4>'));
+        EmailMsg.Create(Recipients, Subject, Body, true, TxtDefaultCCMailList, TxtDefaultBCCMailList);
+        Emailobj.Send(EmailMsg, Enum::"Email Scenario"::Default);
+        // _FileName := 'ConsolidatedBatchReport_' + Format(Today, 0, '<Day,2><Month,2><Year4>') + '.xlsx';
     end;
 
     var
