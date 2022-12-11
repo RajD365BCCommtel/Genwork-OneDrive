@@ -22,6 +22,7 @@ Codeunit 50203 "Onedrive JobQueue Handler"
                     _ConnectorSetup.Get();
                     //_FileName := _ConnectorSetup."File Name" + '_' + Format(Today, 0, '<Day,2><Month,2><Year4>') + '.xlsx';
                     _FileName := _ConnectorSetup."File Name" + '.xlsx';
+                    FileName := _FileName;
                     _OneDriveMgt.SetFileName(_FileName);
                     _IsExecuted := _OneDriveMgt.RUN;
                     IF _IsExecuted THEN begin
@@ -84,7 +85,19 @@ Codeunit 50203 "Onedrive JobQueue Handler"
                     UpdateItemFromClosingStock(_ClosingStockDetails);
                 until _ClosingStockDetails.Next = 0;
         end;
-        CreateAndSendEmail(_CounterOK, _CounterError);
+
+        //CreateAndSendEmail(_CounterOK, _CounterError);
+        DeleteTempStockRecords();
+        CLEAR(_JobQueueExectuer);
+        _JobQueueExectuer.SetJQEParameter(txtSendEmailAndCopyDelete);
+        _JobQueueExectuer.SetFileName(FileName);
+        _JobQueueExectuer.SetCounterParameters(_CounterOK, _CounterError);
+        IF _JobQueueExectuer.ProcessSendEmailAndCopyDelete(_TempClosingStockDetails) THEN
+            IF GUIALLOWED THEN
+                MESSAGE('Mail sent and File moved to Processed folder')
+            else
+                FailureStockDetailEntry(FileName);
+
         IF GUIALLOWED THEN BEGIN
             _Window.CLOSE;
             MESSAGE(_Text004, _CounterOK, _CounterError);
@@ -128,34 +141,7 @@ Codeunit 50203 "Onedrive JobQueue Handler"
         end;
     end;
 
-    procedure CreateAndSendEmail(CounterOk: Integer; CounterErr: Integer)
-    var
-        Recipients: List of [Text];
-        UserSetup: Record "User Setup";
-        Emailobj: Codeunit Email;
-        EmailMsg: Codeunit "Email Message";
-        TxtDefaultCCMailList: List of [Text];
-        TxtDefaultBCCMailList: List of [Text];
-        Body: Text;
-        InvStockMsg: Label 'Dear Execution Team, <br><br> The Item Inventory stock details are updated in SwiftLink for date %1.<br><br> Total Number of records updated : %2 <br><br>Total Number of records had issues while updating : %3 <br><br>Thanks, <br> Digital Team';
-        SubjectMsg: Label 'Item Inventory stock update status - %1';
-        Subject: Text;
-        _CurrentDateTime: DateTime;
-        _FileName: Text;
-    begin
-        UserSetup.RESET;
-        UserSetup.SETFILTER(UserSetup."Backend User Email ID", '<>%1', '');
-        IF UserSetup.FINDFIRST THEN
-            REPEAT
-                Recipients.add(UserSetup."Backend User Email ID");
-            UNTIL UserSetup.NEXT = 0;
-        _CurrentDateTime := CurrentDateTime;
-        Body := StrSubstNo(InvStockMsg, Format(Today, 0, '<Day,2>/<Month,2>/<Year4>'), CounterOk, CounterErr);
-        Subject := StrSubstNo(SubjectMsg, Format(Today, 0, '<Day,2>/<Month,2>/<Year4>'));
-        EmailMsg.Create(Recipients, Subject, Body, true, TxtDefaultCCMailList, TxtDefaultBCCMailList);
-        Emailobj.Send(EmailMsg, Enum::"Email Scenario"::Default);
-        // _FileName := 'ConsolidatedBatchReport_' + Format(Today, 0, '<Day,2><Month,2><Year4>') + '.xlsx';
-    end;
+
 
 
     local procedure FailureStockDetailEntry(FileName: Text)
@@ -178,40 +164,11 @@ Codeunit 50203 "Onedrive JobQueue Handler"
     BEGIN
         JQEParameter := _JQEParameter;
     END;
-    // procedure UploadItem(FileName: Text; Stream: InStream): Boolean
-    // var
-    //     Client: HttpClient;
-    //     Headers: HttpHeaders;
-    //     RequestMessage: HttpRequestMessage;
-    //     ResponseMessage: HttpResponseMessage;
-    //     RequestContent: HttpContent;
-    //     ConnectorSetup: Record "Onedrive Connector Setup";
-    //     _AccessTokenMgmnt: codeunit "OneDrive Access Token Mgmnt.";
-    //     _AccessToken: Text;
-    //     ResponseText: Text;
-    //     _MessageTxt: Text;
-    //     SetRequestURL: Text;
-    // begin
-    //     ConnectorSetup.Get();
-    //     _AccessToken := ConnectorSetup.GetAccessToken();
-    //     _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
-    //     //UploadIntoStream('Upload a file', '', '', FileName, Stream);
-    //     Headers := Client.DefaultRequestHeaders();
-    //     Headers.Add('Authorization', StrSubstNo('Bearer %1', _AccessToken));
 
-    //     RequestMessage.SetRequestUri(StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Folder Name" + '/%1:/content', FileName));
-
-    //     RequestMessage.Method := 'PUT';
-
-    //     RequestContent.WriteFrom(Stream);
-    //     RequestMessage.Content := RequestContent;
-
-    //     if Client.Send(RequestMessage, ResponseMessage) then
-    //         if ResponseMessage.IsSuccessStatusCode() then
-    //             exit(true); //success
-
-    //     exit(false); //fail
-    // end;
+    procedure SetFileName(_FileName: Text)
+    begin
+        FileName := _FileName;
+    end;
 
     VAR
 
@@ -220,5 +177,7 @@ Codeunit 50203 "Onedrive JobQueue Handler"
         TempItem: Record Item temporary;
         JobQueueExectuer: Codeunit "Onedrive Jobque. Executer";
         JQEParameter: Text[250];
+        txtSendEmailAndCopyDelete: TextConst ENU = 'EMAILANDDELETE';
+        FileName: Text;
 
 }
