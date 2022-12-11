@@ -24,8 +24,6 @@ codeunit 50201 "One Drive Mgt."
         ImportExcelDataToTempStock();
     end;
 
-
-
     procedure GetOnedriveFileStream(OneDriveFile: Text; var Stream: InStream)
     var
         Client: HttpClient;
@@ -170,11 +168,12 @@ codeunit 50201 "One Drive Mgt."
         ConnectorSetup.TestField("Drive ID");
         ConnectorSetup.TestField("Import Folder");
         ConnectorSetup.TestField("Move Folder Id");
+        ConnectorSetup.TestField("File Name");
         _AccessToken := ConnectorSetup.GetAccessToken();
         _AccessTokenMgmnt.InvokeAccessToken(ConnectorSetup, _MessageTxt, _AccessToken, true);
         Headers := Client.DefaultRequestHeaders();
         OneDriveURL := StrSubstNo('https://graph.microsoft.com/v1.0/drives/' + ConnectorSetup."Drive ID" + '/root:/' + ConnectorSetup."Import Folder" + '/%1:/Copy', OneDriveFile);
-        RequestJson.Add('name', OneDriveFile);
+        RequestJson.Add('name', ConnectorSetup."File Name" + '_' + Format(CurrentDateTime, 0, '<Day,2><Month,2><Year4><Hours24,2><Minutes,2><Seconds,2>') + '.xlsx');
         RequestJson.Add('parentReference', GetParentReferenceJson(ConnectorSetup."Move Folder Id"));
         RequestJson.WriteTo(_JsonText);
         RequestContent.WriteFrom(_JsonText);
@@ -231,6 +230,7 @@ codeunit 50201 "One Drive Mgt."
                 ErrorMessage := StrSubstNo(EnvironmentBlocksErr, RequestMessage.GetRequestUri())
             else
                 ErrorMessage := StrSubstNo(ConnectionErr, RequestMessage.GetRequestUri());
+        //ResponseMessage.Content.ReadAs(ErrorMessage);
         if ErrorMessage <> '' then
             Error(ErrorMessage);
         if ResponseMessage.IsSuccessStatusCode() then
@@ -241,14 +241,10 @@ codeunit 50201 "One Drive Mgt."
             Error(ErrorMessage);
     end;
 
-
-
     local procedure GetParentReferenceJson(MoveFolderId: text) ParentRefernceJson: JsonObject
     begin
         ParentRefernceJson.Add('id', MoveFolderId)
     end;
-
-
 
     procedure GetTempClosingStockEntries(var TempClosingStockDetails1: Record "Closing Stock Details Buffer" temporary)
     begin

@@ -141,9 +141,6 @@ Codeunit 50203 "Onedrive JobQueue Handler"
         end;
     end;
 
-
-
-
     local procedure FailureStockDetailEntry(FileName: Text)
     var
         OneDriveOutboundLogEntries: Record "OneDrive Outbound Log Entries";
